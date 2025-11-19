@@ -1,0 +1,413 @@
+@import "tailwindcss";
+
+.hero-font {
+    font-family: "Big Shoulders Display", sans-serif;
+}
+
+body {
+    background: #f8fafc; /* slate-50 */
+    font-family:
+        system-ui,
+        -apple-system,
+        sans-serif;
+    margin: 0;
+    padding: 0;
+}
+
+/* Horizontal scrollable container */
+.attendance-scroll-container {
+    overflow-x: auto;
+    padding-bottom: 1rem;
+    scrollbar-width: thin;
+    scrollbar-color: #888 #f1f1f1;
+}
+
+.attendance-scroll-container::-webkit-scrollbar {
+    height: 8px;
+}
+
+.attendance-scroll-container::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.attendance-scroll-container::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+.attendance-scroll-container::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+/* Attendance card styles */
+.attendance-card {
+    min-width: 200px;
+    flex-shrink: 0;
+    border: 2px solid #334155; /* slate-700 */
+    padding: 12px;
+    background: white;
+    box-shadow: 2px 2px 0px rgba(51, 65, 85, 0.3);
+    transition: transform 0.2s;
+}
+
+.attendance-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 4px 4px 0px rgba(51, 65, 85, 0.4);
+}
+
+/* Dashboard controls specific to PI detail page */
+.dashboard-controls {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 1.5rem;
+}
+
+.control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.control-group label {
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+
+/* Table styles for PI detail */
+.attendance-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.attendance-table th {
+    background-color: #f1f5f9; /* slate-100 */
+    font-weight: 600;
+    text-align: left;
+    padding: 0.75rem;
+    border-bottom: 2px solid #334155; /* slate-700 */
+}
+
+.attendance-table td {
+    padding: 0.75rem;
+    border-bottom: 1px solid #e2e8f0; /* slate-200 */
+}
+
+.attendance-table tr:hover {
+    background-color: #f8fafc; /* slate-50 */
+}
+
+/* Status badges */
+.status-full-day {
+    background-color: #dcfce7; /* green-100 */
+    color: #166534; /* green-800 */
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.status-half-day {
+    background-color: #fef3c7; /* amber-100 */
+    color: #92400e; /* amber-700 */
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.status-in-progress {
+    background-color: #f1f5f9; /* slate-100 */
+    color: #475569; /* slate-600 */
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+/* PI List Container Styles */
+.pi-list-container {
+    background: white;
+    border: 2px solid #cbd5e1; /* slate-300 */
+    border-radius: 8px;
+    box-shadow: 2px 2px 0px rgba(51, 65, 85, 0.1);
+    overflow: hidden;
+}
+
+.pi-list-header {
+    display: flex;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    background: #f1f5f9; /* slate-100 */
+    border-bottom: 2px solid #cbd5e1; /* slate-300 */
+}
+
+.pi-list-header-checkbox {
+    margin-right: 1rem;
+    transform: scale(1.2);
+}
+
+.pi-list-header-title {
+    flex: 1;
+    font-weight: 600;
+    color: #334155; /* slate-700 */
+    text-align: center;
+}
+
+.pi-list-header-name {
+    flex: 1;
+    font-weight: 600;
+    text-align: center;
+    color: #334155; /* slate-700 */
+}
+
+.pi-list-header-status {
+    flex: 1;
+    font-weight: 600;
+    text-align: center;
+    color: #334155; /* slate-700 */
+}
+
+.pi-item {
+    display: flex;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid #e2e8f0; /* slate-200 */
+    background: white;
+    transition: background-color 0.2s;
+}
+
+.pi-item:hover {
+    background-color: #f8fafc; /* slate-50 */
+}
+
+.pi-item-checkbox {
+    margin-right: 1rem;
+    transform: scale(1.2);
+}
+
+.pi-name {
+    flex: 1;
+    font-size: 1.1rem;
+    text-align: center;
+}
+
+.pi-full-name {
+    flex: 1;
+    font-size: 1rem;
+    color: #475569; /* slate-600 */
+    text-align: center;
+}
+
+.pi-status {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.pi-link {
+    text-decoration: none;
+    color: #3b82f6; /* blue-500 */
+    font-weight: 500;
+    cursor: pointer;
+    transition: color 0.2s;
+}
+
+.pi-link:hover {
+    color: #1d4ed8; /* blue-700 */
+}
+
+/* Status color classes */
+.status-complete {
+    color: #166534; /* green-800 */
+    font-weight: bold;
+}
+
+.status-pending {
+    color: #92400e; /* amber-700 */
+    font-weight: 600;
+}
+
+.status-requested {
+    color: #1e40af; /* blue-800 */
+    font-weight: 600;
+}
+
+.status-none {
+    color: #64748b; /* slate-500 */
+    font-weight: 600;
+}
+
+/* PI Link disabled state */
+.pi-link-disabled {
+    color: #9ca3af; /* gray-400 */
+    font-weight: 500;
+    cursor: not-allowed;
+    opacity: 0.6;
+    text-decoration: none;
+    display: inline-block;
+    position: relative;
+}
+
+.pi-link-disabled:hover {
+    color: #9ca3af; /* stay gray */
+    text-decoration: none;
+}
+
+/* Lock icon indicator */
+.pi-link-disabled::after {
+    content: "";
+    display: inline-block;
+    margin-left: 0.25rem;
+}
+
+/* Add visual feedback for disabled state */
+.pi-item:has(.pi-link-disabled) {
+    background-color: #f9fafb; /* slight gray background */
+}
+
+.pi-item:has(.pi-link-disabled):hover {
+    background-color: #f9fafb; /* no hover effect */
+}
+
+
+/* Calendar Grid Styles */
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 1px;
+    background-color: #e2e8f0;
+    border: 2px solid #cbd5e1;
+    padding: 1px;
+    border-radius: 0.5rem;
+    overflow: hidden;
+}
+
+.calendar-day-header {
+    background-color: #475569;
+    color: white;
+    padding: 0.75rem;
+    text-align: center;
+    font-weight: bold;
+    font-size: 0.875rem;
+}
+
+.calendar-day {
+    background-color: white;
+    padding: 0.5rem;
+    min-height: 60px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    border: 1px solid transparent;
+    transition: all 0.2s;
+    font-size: 0.875rem;
+}
+
+.calendar-day:hover {
+    background-color: #f8fafc;
+    border-color: #94a3b8;
+}
+
+.calendar-day.holiday {
+    background-color: #fef2f2;
+    color: #991b1b;
+}
+
+.calendar-day.weekend {
+    background-color: #f1f5f9;
+    color: #475569;
+}
+
+.calendar-day.present {
+    background-color: #dcfce7;
+    border: 1px solid #86efac;
+}
+
+.calendar-day.absent {
+    background-color: #fee2e2;
+    border: 1px solid #fca5a5;
+}
+
+.calendar-day.non-working {
+    background-color: #f3f4f6;
+    color: #6b7280;
+}
+
+.calendar-day-desc {
+    font-size: 0.625rem;
+    color: #64748b;
+    text-align: center;
+    margin-top: 0.25rem;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.calendar-status {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    font-size: 0.75rem;
+    font-weight: bold;
+}
+
+.calendar-status.present {
+    color: #16a34a;
+}
+
+.calendar-status.absent {
+    color: #dc2626;
+}
+
+/* Calendar legend (optional) */
+.calendar-legend {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1rem;
+    padding: 0.75rem;
+    background-color: #f8fafc;
+    border-radius: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.calendar-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+}
+
+.calendar-legend-box {
+    width: 20px;
+    height: 20px;
+    border: 1px solid #cbd5e1;
+    border-radius: 0.25rem;
+}
+
+.calendar-legend-box.present {
+    background-color: #dcfce7;
+    border-color: #86efac;
+}
+
+.calendar-legend-box.absent {
+    background-color: #fee2e2;
+    border-color: #fca5a5;
+}
+
+.calendar-legend-box.holiday {
+    background-color: #fef2f2;
+    border-color: #fca5a5;
+}
+
+.calendar-legend-box.weekend {
+    background-color: #f1f5f9;
+    border-color: #cbd5e1;
+}
