@@ -16,9 +16,9 @@ export interface PIData {
 export interface PIStatusData {
   status: "complete" | "pending" | "none" | "requested";
   fullName: string;
-  isPartial?: boolean; // New field to indicate partial submission
-  submittedCount?: number; // Number of employees submitted
-  totalCount?: number; // Total number of employees under this PI
+  isPartial?: boolean;
+  submittedCount?: number;
+  totalCount?: number;
 }
 
 export interface PIStatuses {
@@ -163,13 +163,8 @@ export default function DashboardPage() {
 
   if (!isMounted || isLoading || !user) {
     return (
-      <div className="min-h-screen bg-slate-50">
-        <Header />
-        <main className="container mx-auto p-6">
-          <div className="bg-white border-2 border-slate-700 p-8 shadow-[4px_4px_0px_rgba(51,65,85,0.3)] rounded-lg">
-            <p className="text-2xl font-bold text-slate-800">Loading...</p>
-          </div>
-        </main>
+      <div className="min-h-screen p-6 flex items-center justify-center">
+        <div className="neo-card p-8 font-bold uppercase animate-pulse">Loading Dashboard...</div>
       </div>
     );
   }
@@ -182,9 +177,7 @@ export default function DashboardPage() {
     const query = searchQuery.toLowerCase();
     if (!query) return true;
 
-    if (!pi || !pi.username) {
-      return false;
-    }
+    if (!pi || !pi.username) return false;
 
     const statusData = piStatuses[pi.username];
     const fullName =
@@ -201,117 +194,95 @@ export default function DashboardPage() {
   });
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="max-w-7xl mx-auto p-4 md:p-8">
       <Header />
-      <main className="container mx-auto p-6">
-        <div className="bg-white border-2 border-slate-300 shadow-[4px_4px_0px_rgba(51,65,85,0.1)] p-6 mb-6 rounded-lg">
-          <div className="flex flex-wrap gap-x-6 gap-y-4 items-end justify-between">
-            <div className="flex flex-wrap gap-4 items-end">
-              <div>
-                <label
-                  htmlFor="month-select"
-                  className="block text-sm font-bold mb-2 text-slate-700"
-                >
-                  Month
-                </label>
+
+      {/* Controls Card */}
+      <div className="neo-card p-6 mb-8">
+        <div className="flex flex-col gap-6">
+          {/* Filter Row */}
+          <div className="flex flex-col md:flex-row justify-between items-end gap-4">
+            <div className="flex gap-4 w-full md:w-auto">
+              <div className="w-full md:w-48">
+                <label className="block text-xs font-bold uppercase mb-1">Month</label>
                 <select
-                  id="month-select"
                   value={filters.month}
-                  onChange={(e) =>
-                    setFilters((f) => ({ ...f, month: +e.target.value }))
-                  }
-                  className="border-2 border-slate-300 p-2 bg-white rounded hover:border-slate-400 focus:outline-none focus:border-slate-500"
+                  onChange={(e) => setFilters((f) => ({ ...f, month: +e.target.value }))}
+                  className="neo-input"
                 >
                   {Array.from({ length: 12 }, (_, i) => (
                     <option key={i + 1} value={i + 1}>
-                      {new Date(0, i).toLocaleString("en-US", {
-                        month: "long",
-                      })}
+                      {new Date(0, i).toLocaleString("en-US", { month: "long" })}
                     </option>
                   ))}
                 </select>
               </div>
-
-              <div>
-                <label
-                  htmlFor="year-select"
-                  className="block text-sm font-bold mb-2 text-slate-700"
-                >
-                  Year
-                </label>
+              <div className="w-full md:w-32">
+                <label className="block text-xs font-bold uppercase mb-1">Year</label>
                 <select
-                  id="year-select"
                   value={filters.year}
-                  onChange={(e) =>
-                    setFilters((f) => ({ ...f, year: +e.target.value }))
-                  }
-                  className="border-2 border-slate-300 p-2 bg-white rounded hover:border-slate-400 focus:outline-none focus:border-slate-500"
+                  onChange={(e) => setFilters((f) => ({ ...f, year: +e.target.value }))}
+                  className="neo-input"
                 >
                   <option value="2025">2025</option>
                   <option value="2024">2024</option>
                 </select>
               </div>
-
-              <div className="flex gap-4">
-                <button
-                  onClick={handleOpenRequestModal}
-                  disabled={selectedPIs.size === 0}
-                  className="h-12 px-5 border-slate-700 border-2 bg-blue-100 hover:bg-blue-200 active:bg-blue-300 hover:shadow-[2px_2px_0px_rgba(51,65,85,0.2)] disabled:border-gray-400 disabled:bg-gray-100 disabled:text-gray-500 disabled:hover:shadow-none font-bold text-slate-800 rounded transition-all"
-                >
-                  Request Data
-                </button>
-                <button
-                  onClick={handleDownloadReport}
-                  disabled={!canDownload || selectedPIs.size === 0}
-                  className="h-12 px-5 border-slate-700 border-2 bg-green-100 hover:bg-green-200 active:bg-green-300 hover:shadow-[2px_2px_0px_rgba(51,65,85,0.2)] disabled:border-gray-400 disabled:bg-gray-100 disabled:text-gray-500 disabled:hover:shadow-none font-bold text-slate-800 rounded transition-all"
-                >
-                  Download Report
-                </button>
-              </div>
             </div>
-            <div className="flex-grow md:flex-grow-0">
-              <label
-                htmlFor="pi-search"
-                className="block text-sm font-bold mb-2 text-slate-700"
-              >
-                Search PI by Username or Name
-              </label>
+
+            <div className="w-full md:w-auto flex-grow md:flex-grow-0">
+              <label className="block text-xs font-bold uppercase mb-1">Search PIs</label>
               <input
-                id="pi-search"
                 type="text"
-                placeholder="Type to search..."
+                placeholder="Username or Name..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full md:w-80 border-2 border-slate-300 p-2 bg-white rounded hover:border-slate-400 focus:outline-none focus:border-slate-500"
+                className="neo-input md:w-64"
               />
             </div>
           </div>
-        </div>
 
-        {statusMessage && (
-          <div className="bg-blue-50 border-2 border-blue-300 p-4 mb-6 shadow-[2px_2px_0px_rgba(51,65,85,0.1)] rounded-lg">
-            <p className="font-bold text-center text-blue-800">
-              {statusMessage}
-            </p>
+          {/* Actions Row */}
+          <div className="flex gap-4 border-t-2 border-black pt-4">
+            <button
+              onClick={handleOpenRequestModal}
+              disabled={selectedPIs.size === 0}
+              className="neo-btn neo-btn-info"
+            >
+              Request Data
+            </button>
+            <button
+              onClick={handleDownloadReport}
+              disabled={!canDownload || selectedPIs.size === 0}
+              className="neo-btn neo-btn-primary"
+            >
+              Download Report
+            </button>
           </div>
-        )}
+        </div>
+      </div>
 
-        <PIList
-          pis={filteredPIs}
-          selectedPIs={selectedPIs}
-          setSelectedPIs={setSelectedPIs}
-          piStatuses={piStatuses}
-        />
+      {statusMessage && (
+        <div className="neo-card bg-yellow-50 p-4 mb-6 text-center font-bold border-yellow-400">
+          {statusMessage}
+        </div>
+      )}
 
-        <RequestModal
-          isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
-          onConfirm={handleSendRequest}
-          month={filters.month}
-          year={filters.year}
-          selectedPIs={Array.from(selectedPIs)}
-        />
-      </main>
+      <PIList
+        pis={filteredPIs}
+        selectedPIs={selectedPIs}
+        setSelectedPIs={setSelectedPIs}
+        piStatuses={piStatuses}
+      />
+
+      <RequestModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onConfirm={handleSendRequest}
+        month={filters.month}
+        year={filters.year}
+        selectedPIs={Array.from(selectedPIs)}
+      />
     </div>
   );
 }

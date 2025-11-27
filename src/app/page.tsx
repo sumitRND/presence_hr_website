@@ -22,16 +22,16 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
-      <div className="w-full max-w-md bg-white border-2 border-slate-700 shadow-[4px_4px_0px_rgba(51,65,85,0.3)] p-8 rounded-lg">
-        <h1 className="text-4xl font-bold mb-8 text-center text-slate-800">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-[#FDFCEC]">
+      <div className="w-full max-w-md neo-card p-8">
+        <h1 className="text-3xl font-extrabold mb-8 text-center text-black uppercase tracking-tight">
           HR Login
         </h1>
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
             <label
               htmlFor="username"
-              className="block text-lg font-medium mb-2 text-slate-700"
+              className="block text-sm font-bold mb-2 text-black uppercase"
             >
               Username
             </label>
@@ -40,14 +40,14 @@ export default function LoginPage() {
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="w-full border-slate-300 border-2 p-3 rounded focus:outline-none focus:border-slate-500 focus:shadow-[2px_2px_0px_rgba(51,65,85,0.2)] bg-white"
+              className="neo-input"
               required
             />
           </div>
           <div>
             <label
               htmlFor="password"
-              className="block text-lg font-medium mb-2 text-slate-700"
+              className="block text-sm font-bold mb-2 text-black uppercase"
             >
               Password
             </label>
@@ -56,19 +56,19 @@ export default function LoginPage() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full border-slate-300 border-2 p-3 rounded focus:outline-none focus:border-slate-500 focus:shadow-[2px_2px_0px_rgba(51,65,85,0.2)] bg-white"
+              className="neo-input"
               required
             />
           </div>
           <button
             type="submit"
-            className="w-full h-12 border-slate-700 border-2 bg-slate-200 hover:bg-slate-300 active:bg-slate-400 hover:shadow-[2px_2px_0px_rgba(51,65,85,0.3)] font-bold text-lg text-slate-800 rounded transition-all"
+            className="neo-btn w-full bg-black text-white hover:bg-gray-800 py-3"
           >
             Login
           </button>
           {error && (
-            <div className="bg-red-50 border-2 border-red-300 p-3 text-center rounded">
-              <p className="text-red-700 font-medium">{error}</p>
+            <div className="bg-red-100 border-2 border-black p-3 text-center font-bold text-red-600 text-sm">
+              {error}
             </div>
           )}
         </form>

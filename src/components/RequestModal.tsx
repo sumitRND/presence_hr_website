@@ -27,53 +27,55 @@ export default function RequestModal({
 
   const handleSubmit = () => {
     onConfirm(message);
-    setMessage("Request for attendance data for"); // Reset for next time
+    setMessage("Request for attendance data for");
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white border-2 border-slate-700 shadow-[8px_8px_0px_rgba(51,65,85,0.3)] rounded-lg max-w-md w-full mx-4">
-        <div className="p-6">
-          <h2 className="text-2xl font-bold mb-4 text-slate-800">
-            Send Attendance Request
-          </h2>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
+      <div className="w-full max-w-md neo-card p-0 flex flex-col">
+        <div className="modal-header">
+          <h2 className="text-xl font-extrabold uppercase">Send Request</h2>
+          <button onClick={onClose} className="neo-btn px-2 py-1 text-lg leading-none">
+            &times;
+          </button>
+        </div>
 
-          <div className="mb-4">
-            <p className="text-sm text-slate-600 mb-2">
-              Sending to {selectedPIs.length} PI(s) for {monthName} {year}
-            </p>
+        <div className="p-6">
+          <div className="bg-yellow-50 border-2 border-black p-3 mb-4 font-mono text-sm">
+            <p><strong>To:</strong> {selectedPIs.length} PI(s)</p>
+            <p><strong>Period:</strong> {monthName} {year}</p>
           </div>
 
           <div className="mb-6">
             <label
               htmlFor="request-message"
-              className="block text-sm font-bold mb-2 text-slate-700"
+              className="block text-sm font-bold mb-2 uppercase"
             >
-              Request Message
+              Message
             </label>
             <textarea
               id="request-message"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              className="w-full border-2 border-slate-300 p-3 rounded focus:outline-none focus:border-slate-500 focus:shadow-[2px_2px_0px_rgba(51,65,85,0.2)] bg-white resize-none"
+              className="neo-input min-h-[100px]"
               rows={3}
               placeholder="Enter your request message..."
             />
-            <p className="text-xs text-slate-500 mt-1">
-              Note: Month and year will be automatically added to the message
+            <p className="text-xs text-gray-500 mt-1 font-mono">
+              * Month and year appended automatically.
             </p>
           </div>
 
           <div className="flex gap-3 justify-end">
             <button
               onClick={onClose}
-              className="px-5 py-2 border-2 border-slate-400 bg-gray-100 hover:bg-gray-200 font-bold text-slate-700 rounded transition-all"
+              className="neo-btn bg-gray-100"
             >
               Cancel
             </button>
             <button
               onClick={handleSubmit}
-              className="px-5 py-2 border-2 border-slate-700 bg-blue-100 hover:bg-blue-200 font-bold text-slate-800 rounded hover:shadow-[2px_2px_0px_rgba(51,65,85,0.2)] transition-all"
+              className="neo-btn neo-btn-primary"
             >
               Send Request
             </button>

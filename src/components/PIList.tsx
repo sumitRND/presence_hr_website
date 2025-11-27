@@ -12,20 +12,24 @@ interface PIListProps {
 const statusMap = {
   complete: {
     icon: "✅",
-    text: "Data Submitted",
-    className: "status-complete",
+    text: "Submitted",
+    badgeClass: "badge-green",
   },
   pending: {
     icon: "⚠️",
-    text: "Submission Pending",
-    className: "status-pending",
+    text: "Pending",
+    badgeClass: "badge-yellow",
   },
   requested: {
     icon: "➡️",
-    text: "Request Sent",
-    className: "status-requested",
+    text: "Requested",
+    badgeClass: "badge-blue",
   },
-  none: { icon: "⚫", text: "No Request Sent", className: "status-none" },
+  none: {
+    icon: "⚫",
+    text: "No Action",
+    badgeClass: "badge-gray"
+  },
 };
 
 export default function PIList({
@@ -34,7 +38,6 @@ export default function PIList({
   setSelectedPIs,
   piStatuses,
 }: PIListProps) {
-  // Filter out empty or invalid PIs
   const validPIs = pis.filter(
     (pi) => pi.username && pi.username.trim() !== "" && pi.username !== "N/A",
   );
@@ -61,111 +64,104 @@ export default function PIList({
     const statusData = piStatuses[piUsername];
     const status = statusData?.status || "none";
 
-    // Only allow navigation if status is "complete"
     if (status !== "complete") {
       e.preventDefault();
       alert(
-        "Data has not been submitted by this PI yet. Please request data first and wait for submission.",
+        "Data has not been submitted by this PI yet.",
       );
     }
-  };
-
-  const getStatusDisplay = (pi: PIData) => {
-    const statusData = piStatuses[pi.username];
-    const status = statusData?.status || "none";
-    const { icon, text, className } = statusMap[status];
-
-    // Check if it's a partial submission
-    if (status === "complete" && statusData?.isPartial) {
-      return (
-        <div className={`pi-status ${className}`}>
-          <span>{icon}</span>
-          <span>
-            {text}
-            <span className="text-xs ml-1" style={{ opacity: 0.8 }}>
-              ({statusData.submittedCount}/{statusData.totalCount} employees)
-            </span>
-          </span>
-        </div>
-      );
-    }
-
-    return (
-      <div className={`pi-status ${className}`}>
-        <span>{icon}</span>
-        <span>{text}</span>
-      </div>
-    );
   };
 
   return (
-    <div className="pi-list-container">
-      <div className="pi-list-header">
-        <input
-          type="checkbox"
-          className="pi-list-header-checkbox"
-          onChange={handleSelectAll}
-          checked={validPIs.length > 0 && selectedPIs.size === validPIs.length}
-        />
-        <div className="pi-list-header-title">PI Username</div>
-        <div className="pi-list-header-name">PI Name</div>
-        <div className="pi-list-header-status">Submission Status</div>
+    <div className="neo-card p-0">
+      <div className="p-4 border-b-2 border-black bg-white">
+        <h2 className="text-xl font-bold uppercase">Principal Investigators</h2>
       </div>
-      {validPIs.length > 0 ? (
-        validPIs.map((pi) => {
-          const statusData = piStatuses[pi.username];
-          const status = statusData?.status || "none";
-          const isClickable = status === "complete";
 
-          return (
-            <div key={pi.username} className="pi-item">
-              <input
-                type="checkbox"
-                className="pi-item-checkbox"
-                checked={selectedPIs.has(pi.username)}
-                onChange={() => handleSelectPI(pi.username)}
-              />
-              <div className="pi-name">
-                {isClickable ? (
-                  <Link
-                    href={`/dashboard/pi/${pi.username}`}
-                    className="pi-link"
-                    title={
-                      statusData?.isPartial
-                        ? `View attendance details (${statusData.submittedCount} of ${statusData.totalCount} employees)`
-                        : "View attendance details"
-                    }
-                  >
-                    {pi.username}
-                  </Link>
-                ) : (
-                  <span
-                    className="pi-link-disabled"
-                    onClick={(e) => handlePIClick(e, pi.username)}
-                    title="Data not yet submitted - Request data first"
-                  >
-                    {pi.username}
-                  </span>
-                )}
-              </div>
-              <div className="pi-full-name">
-                {statusData?.fullName && statusData.fullName !== "N/A"
-                  ? statusData.fullName
-                  : pi.fullName && pi.fullName !== "N/A"
-                    ? pi.fullName
-                    : pi.username}
-              </div>
-              {getStatusDisplay(pi)}
-            </div>
-          );
-        })
-      ) : (
-        <div className="pi-item">
-          <div className="text-center w-full py-8 text-slate-500">
-            No PIs found
-          </div>
-        </div>
-      )}
+      <div className="neo-table-container border-0 rounded-none border-t-0">
+        <table className="neo-table">
+          <thead>
+            <tr>
+              <th className="w-12 text-center">
+                <input
+                  type="checkbox"
+                  onChange={handleSelectAll}
+                  checked={validPIs.length > 0 && selectedPIs.size === validPIs.length}
+                  className="w-4 h-4 accent-black cursor-pointer"
+                />
+              </th>
+              <th>Username</th>
+              <th>Full Name</th>
+              <th className="text-center">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {validPIs.length > 0 ? (
+              validPIs.map((pi) => {
+                const statusData = piStatuses[pi.username];
+                const status = statusData?.status || "none";
+                const isClickable = status === "complete";
+                const { text, badgeClass } = statusMap[status];
+
+                return (
+                  <tr key={pi.username}>
+                    <td className="text-center">
+                      <input
+                        type="checkbox"
+                        checked={selectedPIs.has(pi.username)}
+                        onChange={() => handleSelectPI(pi.username)}
+                        className="w-4 h-4 accent-black cursor-pointer"
+                      />
+                    </td>
+                    <td className="font-bold">
+                      {isClickable ? (
+                        <Link
+                          href={`/dashboard/pi/${pi.username}`}
+                          className="text-blue-600 hover:underline decoration-2 underline-offset-2"
+                          title={statusData?.isPartial ? "Partial Submission" : "View Details"}
+                        >
+                          {pi.username}
+                        </Link>
+                      ) : (
+                        <span
+                          className="text-gray-400 cursor-not-allowed"
+                          onClick={(e) => handlePIClick(e, pi.username)}
+                          title="Data not submitted"
+                        >
+                          {pi.username} 🔒
+                        </span>
+                      )}
+                    </td>
+                    <td>
+                      {statusData?.fullName && statusData.fullName !== "N/A"
+                        ? statusData.fullName
+                        : pi.fullName && pi.fullName !== "N/A"
+                          ? pi.fullName
+                          : "-"}
+                    </td>
+                    <td className="text-center">
+                      <span className={`badge ${badgeClass}`}>
+                        {text}
+                        {status === "complete" && statusData?.isPartial && (
+                          <span className="ml-1 opacity-75 text-[10px] block">
+                            ({statusData.submittedCount}/{statusData.totalCount})
+                          </span>
+                        )}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })
+            ) : (
+              <tr>
+                <td colSpan={4} className="text-center p-8 text-gray-500 italic">
+                  No PIs found
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

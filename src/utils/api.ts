@@ -1,5 +1,5 @@
 const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE || "http://localhost:3000/api";
+  process.env.NEXT_PUBLIC_API_BASE;
 
 interface BaseApiResponse {
   success: boolean;
