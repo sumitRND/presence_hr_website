@@ -36,6 +36,13 @@ class ApiClient {
       if (!response.ok) {
         const errorText = await response.text();
         console.error(`API GET Error: ${response.status} - ${errorText}`);
+        if (response.status === 401) {
+          if (localStorage.getItem("hr_token")) {
+            localStorage.removeItem("hr_token");
+            window.location.href = "/";
+          }
+          return { success: false, error: "Session expired" };
+        }
         return { success: false, error: `HTTP ${response.status}` };
       }
 
@@ -65,6 +72,13 @@ class ApiClient {
       if (!response.ok) {
         const errorText = await response.text();
         console.error(`API POST Error: ${response.status} - ${errorText}`);
+        if (response.status === 401) {
+          if (localStorage.getItem("hr_token")) {
+            localStorage.removeItem("hr_token");
+            window.location.href = "/";
+          }
+          return { success: false, error: "Session expired" };
+        }
         return { success: false, error: `HTTP ${response.status}` };
       }
 

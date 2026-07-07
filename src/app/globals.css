@@ -83,6 +83,7 @@ body {
 .neo-btn-primary { background-color: var(--accent-green); }
 .neo-btn-danger { background-color: var(--accent-red); }
 .neo-btn-info { background-color: var(--accent-blue); }
+.neo-btn-warning { background-color: var(--accent-yellow); }
 
 /* --- Table Styling --- */
 

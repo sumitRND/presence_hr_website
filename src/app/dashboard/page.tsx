@@ -6,23 +6,10 @@ import { useAuth } from "../../hooks/useAuth";
 import { api } from "../../utils/api";
 import Header from "../../components/Header";
 import PIList from "../../components/PIList";
-import RequestModal from "../../components/RequestModal";
 
 export interface PIData {
   username: string;
   fullName: string;
-}
-
-export interface PIStatusData {
-  status: "complete" | "pending" | "none" | "requested";
-  fullName: string;
-  isPartial?: boolean;
-  submittedCount?: number;
-  totalCount?: number;
-}
-
-export interface PIStatuses {
-  [key: string]: PIStatusData;
 }
 
 export default function DashboardPage() {
@@ -31,7 +18,6 @@ export default function DashboardPage() {
 
   const [pis, setPis] = useState<PIData[]>([]);
   const [selectedPIs, setSelectedPIs] = useState<Set<string>>(new Set());
-  const [piStatuses, setPiStatuses] = useState<PIStatuses>({});
   const [filters, setFilters] = useState({
     month: new Date().getMonth() + 1,
     year: new Date().getFullYear(),
@@ -39,7 +25,6 @@ export default function DashboardPage() {
   const [statusMessage, setStatusMessage] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [isMounted, setIsMounted] = useState(false);
-  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     setIsMounted(true);
@@ -64,64 +49,6 @@ export default function DashboardPage() {
     };
     if (user && isMounted) fetchPIs();
   }, [user, isMounted]);
-
-  useEffect(() => {
-    if (!user || pis.length === 0 || !isMounted) return;
-
-    const fetchStatuses = async () => {
-      try {
-        const response = await api.get<PIStatuses>(
-          `/hr/submission-status?month=${filters.month}&year=${filters.year}`,
-        );
-        if (response.success && response.data) {
-          setPiStatuses(response.data);
-        }
-      } catch (error) {
-        console.error("Failed to fetch statuses", error);
-      }
-    };
-
-    fetchStatuses();
-    const interval = setInterval(fetchStatuses, 5000);
-
-    return () => clearInterval(interval);
-  }, [user, pis, filters.month, filters.year, isMounted]);
-
-  const handleOpenRequestModal = () => {
-    if (selectedPIs.size === 0) {
-      setStatusMessage("Please select at least one PI");
-      setTimeout(() => setStatusMessage(""), 3000);
-      return;
-    }
-    setIsModalOpen(true);
-  };
-
-  const handleSendRequest = async (message: string) => {
-    setIsModalOpen(false);
-    setStatusMessage("Sending requests...");
-    try {
-      const response = await api.post("/hr/request-data", {
-        piUsernames: Array.from(selectedPIs),
-        month: filters.month,
-        year: filters.year,
-        message: message,
-      });
-      if (response.success) {
-        setStatusMessage("Requests sent successfully!");
-        const newStatuses = { ...piStatuses };
-        selectedPIs.forEach((pi) => {
-          if (newStatuses[pi]) {
-            newStatuses[pi].status = "requested";
-          }
-        });
-        setPiStatuses(newStatuses);
-      }
-    } catch {
-      setStatusMessage("Failed to send requests.");
-    } finally {
-      setTimeout(() => setStatusMessage(""), 3000);
-    }
-  };
 
   const handleDownloadReport = async () => {
     if (selectedPIs.size === 0) return;
@@ -169,23 +96,13 @@ export default function DashboardPage() {
     );
   }
 
-  const canDownload = Array.from(selectedPIs).every(
-    (pi) => piStatuses[pi]?.status === "complete",
-  );
-
   const filteredPIs = pis.filter((pi) => {
     const query = searchQuery.toLowerCase();
     if (!query) return true;
 
     if (!pi || !pi.username) return false;
 
-    const statusData = piStatuses[pi.username];
-    const fullName =
-      statusData?.fullName && statusData.fullName !== "N/A"
-        ? statusData.fullName
-        : pi.fullName && pi.fullName !== "N/A"
-          ? pi.fullName
-          : "";
+    const fullName = pi.fullName && pi.fullName !== "N/A" ? pi.fullName : "";
 
     const usernameMatch = (pi.username ?? "").toLowerCase().includes(query);
     const fullNameMatch = (fullName ?? "").toLowerCase().includes(query);
@@ -224,6 +141,7 @@ export default function DashboardPage() {
                   onChange={(e) => setFilters((f) => ({ ...f, year: +e.target.value }))}
                   className="neo-input"
                 >
+                  <option value="2026">2026</option>
                   <option value="2025">2025</option>
                   <option value="2024">2024</option>
                 </select>
@@ -245,18 +163,23 @@ export default function DashboardPage() {
           {/* Actions Row */}
           <div className="flex gap-4 border-t-2 border-black pt-4">
             <button
-              onClick={handleOpenRequestModal}
-              disabled={selectedPIs.size === 0}
-              className="neo-btn neo-btn-info"
-            >
-              Request Data
-            </button>
-            <button
               onClick={handleDownloadReport}
-              disabled={!canDownload || selectedPIs.size === 0}
+              disabled={selectedPIs.size === 0}
               className="neo-btn neo-btn-primary"
             >
               Download Report
+            </button>
+            <button
+              onClick={() => router.push(`/dashboard/salary-discrepancy?month=${filters.month}&year=${filters.year}`)}
+              className="neo-btn neo-btn-info"
+            >
+              Salary Discrepancy
+            </button>
+            <button
+              onClick={() => router.push("/dashboard/inactive-staff")}
+              className="neo-btn neo-btn-warning"
+            >
+              Inactive Staff
             </button>
           </div>
         </div>
@@ -272,16 +195,8 @@ export default function DashboardPage() {
         pis={filteredPIs}
         selectedPIs={selectedPIs}
         setSelectedPIs={setSelectedPIs}
-        piStatuses={piStatuses}
-      />
-
-      <RequestModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onConfirm={handleSendRequest}
         month={filters.month}
         year={filters.year}
-        selectedPIs={Array.from(selectedPIs)}
       />
     </div>
   );

@@ -1,42 +1,21 @@
 import React from "react";
 import Link from "next/link";
-import type { PIData, PIStatuses } from "../app/dashboard/page";
+import type { PIData } from "../app/dashboard/page";
 
 interface PIListProps {
   pis: PIData[];
   selectedPIs: Set<string>;
   setSelectedPIs: React.Dispatch<React.SetStateAction<Set<string>>>;
-  piStatuses: PIStatuses;
+  month: number;
+  year: number;
 }
-
-const statusMap = {
-  complete: {
-    icon: "✅",
-    text: "Submitted",
-    badgeClass: "badge-green",
-  },
-  pending: {
-    icon: "⚠️",
-    text: "Pending",
-    badgeClass: "badge-yellow",
-  },
-  requested: {
-    icon: "➡️",
-    text: "Requested",
-    badgeClass: "badge-blue",
-  },
-  none: {
-    icon: "⚫",
-    text: "No Action",
-    badgeClass: "badge-gray"
-  },
-};
 
 export default function PIList({
   pis,
   selectedPIs,
   setSelectedPIs,
-  piStatuses,
+  month,
+  year,
 }: PIListProps) {
   const validPIs = pis.filter(
     (pi) => pi.username && pi.username.trim() !== "" && pi.username !== "N/A",
@@ -60,18 +39,6 @@ export default function PIList({
     setSelectedPIs(newSelection);
   };
 
-  const handlePIClick = (e: React.MouseEvent, piUsername: string) => {
-    const statusData = piStatuses[piUsername];
-    const status = statusData?.status || "none";
-
-    if (status !== "complete") {
-      e.preventDefault();
-      alert(
-        "Data has not been submitted by this PI yet.",
-      );
-    }
-  };
-
   return (
     <div className="neo-card p-0">
       <div className="p-4 border-b-2 border-black bg-white">
@@ -92,17 +59,12 @@ export default function PIList({
               </th>
               <th>Username</th>
               <th>Full Name</th>
-              <th className="text-center">Status</th>
+              <th className="text-center">Actions</th>
             </tr>
           </thead>
           <tbody>
             {validPIs.length > 0 ? (
               validPIs.map((pi) => {
-                const statusData = piStatuses[pi.username];
-                const status = statusData?.status || "none";
-                const isClickable = status === "complete";
-                const { text, badgeClass } = statusMap[status];
-
                 return (
                   <tr key={pi.username}>
                     <td className="text-center">
@@ -113,41 +75,19 @@ export default function PIList({
                         className="w-4 h-4 accent-black cursor-pointer"
                       />
                     </td>
-                    <td className="font-bold">
-                      {isClickable ? (
-                        <Link
-                          href={`/dashboard/pi/${pi.username}`}
-                          className="text-blue-600 hover:underline decoration-2 underline-offset-2"
-                          title={statusData?.isPartial ? "Partial Submission" : "View Details"}
-                        >
-                          {pi.username}
-                        </Link>
-                      ) : (
-                        <span
-                          className="text-gray-400 cursor-not-allowed"
-                          onClick={(e) => handlePIClick(e, pi.username)}
-                          title="Data not submitted"
-                        >
-                          {pi.username} 🔒
-                        </span>
-                      )}
-                    </td>
+                    <td className="font-bold">{pi.username}</td>
                     <td>
-                      {statusData?.fullName && statusData.fullName !== "N/A"
-                        ? statusData.fullName
-                        : pi.fullName && pi.fullName !== "N/A"
-                          ? pi.fullName
-                          : "-"}
+                      {pi.fullName && pi.fullName !== "N/A"
+                        ? pi.fullName
+                        : "-"}
                     </td>
                     <td className="text-center">
-                      <span className={`badge ${badgeClass}`}>
-                        {text}
-                        {status === "complete" && statusData?.isPartial && (
-                          <span className="ml-1 opacity-75 text-[10px] block">
-                            ({statusData.submittedCount}/{statusData.totalCount})
-                          </span>
-                        )}
-                      </span>
+                      <Link
+                        href={`/dashboard/pi/${pi.username}?month=${month}&year=${year}`}
+                        className="neo-btn neo-btn-primary text-xs py-1 px-3"
+                      >
+                        View Attendance
+                      </Link>
                     </td>
                   </tr>
                 );

@@ -1,10 +1,19 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "../../../../hooks/useAuth";
 import Header from "../../../../components/Header";
 import Link from "next/link";
+import { getPITeamLeaves } from "../../../../leave/leaveService";
+import type { TeamLeavesMap, LeaveDateEntry } from "../../../../leave/leaveTypes";
+
+/** Filter leave entries to only include dates up to today */
+function filterPastLeaves(leaves: LeaveDateEntry[]): LeaveDateEntry[] {
+  const now = new Date();
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  return leaves.filter((l) => l.date <= todayStr);
+}
 
 interface AttendanceRecord {
   date: string;
@@ -16,15 +25,40 @@ interface AttendanceRecord {
   isCheckedOut: boolean;
 }
 
+interface ModifiedAttendanceRecord {
+  id: number;
+  employeeNumber: string;
+  date: string;
+  status: "ADDED" | "REMOVED";
+  comment: string;
+  piEmployeeNumber: string;
+  createdAt: string;
+}
+
 interface UserAttendance {
   username: string;
   employeeId: string;
   workingDays: number;
+  holidays?: number;
   presentDays: number;
   absentDays: number;
+  addedDays?: number;
+  removedDays?: number;
+  total?: number;
   adjustmentDelta?: number;
   adjustmentComment?: string;
+  leaveDays?: number;
+  fullDayLeaves?: number;
+  halfDayLeaves?: number;
+  clFullDay?: number;
+  clHalfDay?: number;
+  elDays?: number;
+  odDays?: number;
+  projects?: { projectCode: string; department: string }[];
+  joiningDate?: string | null;
+  termCompletionDate?: string | null;
   attendances: AttendanceRecord[];
+  modifiedAttendances?: ModifiedAttendanceRecord[];
 }
 
 interface PIDetailData {
@@ -32,6 +66,7 @@ interface PIDetailData {
   month: number;
   year: number;
   totalWorkingDays: number;
+  holidays?: number;
   users: UserAttendance[];
 }
 
@@ -45,7 +80,16 @@ interface CalendarDay {
   isHoliday: boolean;
   isWeekend: boolean;
   description?: string;
-  status: "present" | "absent" | "non-working" | null;
+  status: "present" | "absent" | "leave" | "non-working" | null;
+  leaveReason?: string | null;
+  leaveType?: string | null;
+  dayType?: string | null;
+  isAdded?: boolean;
+  addedReason?: string | null;
+  isRemoved?: boolean;
+  removedReason?: string | null;
+  isJoiningDate?: boolean;
+  isTermCompletionDate?: boolean;
 }
 
 export default function PIDetailPage() {
@@ -54,6 +98,9 @@ export default function PIDetailPage() {
   const { user, isLoading: authLoading } = useAuth();
 
   const piUsername = params.username as string;
+  const searchParams = useSearchParams();
+  const queryMonth = searchParams.get("month");
+  const queryYear = searchParams.get("year");
 
   const [data, setData] = useState<PIDetailData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -63,10 +110,16 @@ export default function PIDetailPage() {
   const [isMounted, setIsMounted] = useState(false);
   const [calendarData, setCalendarData] = useState<CalendarDay[]>([]);
   const [loadingCalendar, setLoadingCalendar] = useState(false);
-  const [hasSubmittedData, setHasSubmittedData] = useState(false);
-  const [submittedMonths, setSubmittedMonths] = useState<
-    { month: number; year: number }[]
-  >([]);
+  const [selectedMonth, setSelectedMonth] = useState(
+    queryMonth ? parseInt(queryMonth) : new Date().getMonth() + 1
+  );
+  const [selectedYear, setSelectedYear] = useState(
+    queryYear ? parseInt(queryYear) : new Date().getFullYear()
+  );
+  const [selectedProject, setSelectedProject] = useState<string>("all");
+  const [reasonModal, setReasonModal] = useState<{ user: UserAttendance; type: "ADDED" | "REMOVED" } | null>(null);
+  const [teamLeaves, setTeamLeaves] = useState<TeamLeavesMap>({});
+  const detailRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { setIsMounted(true); }, []);
 
@@ -76,57 +129,12 @@ export default function PIDetailPage() {
     }
   }, [user, authLoading, router, isMounted]);
 
-  // Check submission status first
+  // Fetch data for the selected month
   useEffect(() => {
-    const checkSubmissionStatus = async () => {
-      if (!user || !piUsername || !isMounted) return;
-
-      try {
-        const submitted: { month: number; year: number }[] = [];
-        for (let i = 0; i < 12; i++) {
-          const date = new Date();
-          date.setMonth(date.getMonth() - i);
-          const month = date.getMonth() + 1;
-          const year = date.getFullYear();
-
-          const response = await fetch(
-            `${process.env.NEXT_PUBLIC_API_BASE}/hr/submission-status?month=${month}&year=${year}`,
-            {
-              headers: {
-                Authorization: `Bearer ${localStorage.getItem("hr_token")}`,
-              },
-            },
-          );
-
-          if (response.ok) {
-            const result = await response.json();
-            if (result.success && result.data?.[piUsername]?.status === "complete") {
-              submitted.push({ month, year });
-            }
-          }
-        }
-
-        if (submitted.length === 0) {
-          setError("No data has been submitted by this PI yet.");
-          setHasSubmittedData(false);
-        } else {
-          setHasSubmittedData(true);
-          setSubmittedMonths(submitted);
-          const mostRecent = submitted[0];
-          if (mostRecent) {
-            fetchDataForMonth(mostRecent.month, mostRecent.year);
-          }
-        }
-      } catch (err) {
-        console.error("Error checking submission status:", err);
-        setError("Failed to check submission status");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    checkSubmissionStatus();
-  }, [user, piUsername, isMounted]);
+    if (!user || !piUsername || !isMounted) return;
+    fetchDataForMonth(selectedMonth, selectedYear);
+    getPITeamLeaves(piUsername, selectedMonth, selectedYear).then(setTeamLeaves);
+  }, [user, piUsername, isMounted, selectedMonth, selectedYear]);
 
   const fetchDataForMonth = useCallback(async (month: number, year: number) => {
     if (!user || !piUsername) return;
@@ -172,6 +180,20 @@ export default function PIDetailPage() {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
+        // Normalize a date-ish value to a YYYY-MM-DD string for comparison
+        const toDateStr = (value: string | null | undefined): string | null => {
+          if (!value) return null;
+          const trimmed = value.trim();
+          if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+          const parsed = new Date(trimmed);
+          return isNaN(parsed.getTime())
+            ? null
+            : parsed.toISOString().split("T")[0];
+        };
+
+        const joiningDateStr = toDateStr(userAttendance.joiningDate);
+        const termCompletionDateStr = toDateStr(userAttendance.termCompletionDate);
+
         for (let day = 1; day <= daysInMonth; day++) {
           const date = new Date(Date.UTC(data.year, data.month - 1, day));
           const dateStr = date.toISOString().split("T")[0];
@@ -187,10 +209,30 @@ export default function PIDetailPage() {
               return attDate.toISOString().split("T")[0] === dateStr;
             },
           );
+          const leaveEntry = teamLeaves[userAttendance.employeeId]?.find(
+            (l) => l.date === dateStr,
+          );
+
+          // PI manual adjustments for this date
+          const addedEntry = (userAttendance.modifiedAttendances || []).find(
+            (m) =>
+              m.status === "ADDED" &&
+              new Date(m.date).toISOString().split("T")[0] === dateStr,
+          );
+          const removedEntry = (userAttendance.modifiedAttendances || []).find(
+            (m) =>
+              m.status === "REMOVED" &&
+              new Date(m.date).toISOString().split("T")[0] === dateStr,
+          );
+
           let status: CalendarDay["status"] = null;
-          if (attendance) status = "present";
+          if (leaveEntry) status = "leave";
+          else if (attendance || addedEntry) status = "present";
           else if (!isHoliday && !isWeekend && date <= today) status = "absent";
           else if (isHoliday || isWeekend) status = "non-working";
+
+          // A removed day overrides a present-looking day
+          if (removedEntry) status = "absent";
 
           calendarDays.push({
             date: dateStr,
@@ -198,6 +240,15 @@ export default function PIDetailPage() {
             isWeekend,
             description: holidayInfo?.description,
             status,
+            leaveReason: leaveEntry?.reason,
+            leaveType: leaveEntry?.leaveType,
+            dayType: leaveEntry?.dayType,
+            isAdded: !!addedEntry,
+            addedReason: addedEntry?.comment,
+            isRemoved: !!removedEntry,
+            removedReason: removedEntry?.comment,
+            isJoiningDate: joiningDateStr === dateStr,
+            isTermCompletionDate: termCompletionDateStr === dateStr,
           });
         }
         setCalendarData(calendarDays);
@@ -207,7 +258,7 @@ export default function PIDetailPage() {
         setLoadingCalendar(false);
       }
     },
-    [data],
+    [data, teamLeaves],
   );
 
   useEffect(() => {
@@ -251,21 +302,40 @@ export default function PIDetailPage() {
   };
 
   const getDayClass = (day: CalendarDay) => {
-    let classes = "h-20 border-r-2 border-b-2 border-black p-2 flex flex-col justify-between transition-colors";
-    if (day.status === "present") classes += " bg-green-200";
+    let classes = "h-20 border-r-2 border-b-2 border-black p-2 flex flex-col justify-between transition-colors relative";
+    if (day.isAdded) classes += " bg-emerald-300";
+    else if (day.isRemoved) classes += " bg-orange-200";
+    else if (day.status === "leave") classes += " bg-cyan-200";
+    else if (day.status === "present") classes += " bg-green-200";
     else if (day.status === "absent") classes += " bg-red-200";
     else if (day.isHoliday) classes += " bg-red-50";
     else if (day.isWeekend) classes += " bg-gray-100";
     else classes += " bg-white";
+    // Ring markers for joining / term completion dates
+    if (day.isJoiningDate) classes += " ring-4 ring-inset ring-blue-600";
+    else if (day.isTermCompletionDate) classes += " ring-4 ring-inset ring-purple-600";
     return classes;
   };
 
+  // Extract all unique project codes from users
+  const projectCodes = data?.users
+    ? Array.from(
+        new Set(
+          data.users.flatMap((u) => (u.projects || []).map((p) => p.projectCode)).filter(Boolean)
+        )
+      ).sort()
+    : [];
+
   const filteredUsers =
-    data?.users.filter(
-      (user) =>
+    data?.users.filter((user) => {
+      const matchesSearch =
         user.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        user.employeeId.toLowerCase().includes(searchQuery.toLowerCase()),
-    ) || [];
+        user.employeeId.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesProject =
+        selectedProject === "all" ||
+        (user.projects || []).some((p) => p.projectCode === selectedProject);
+      return matchesSearch && matchesProject;
+    }) || [];
 
   if (!isMounted || authLoading || !user) {
     return (
@@ -275,53 +345,57 @@ export default function PIDetailPage() {
     );
   }
 
-  if (!loading && !hasSubmittedData) {
-    return (
-      <div className="max-w-7xl mx-auto p-4 md:p-8">
-        <Header />
-        <div className="mb-6">
-          <Link href="/dashboard" className="neo-btn text-sm">← Dashboard</Link>
-        </div>
-        <div className="neo-card border-red-500 p-8 bg-red-50">
-          <h2 className="text-2xl font-bold text-red-800 uppercase mb-4">Access Restricted</h2>
-          <p className="text-red-700 font-mono">This PI ({piUsername}) has not submitted any attendance data yet.</p>
-        </div>
-      </div>
-    );
-  }
-
   const firstDayOfMonth = data ? new Date(data.year, data.month - 1, 1).getDay() : 0;
 
   return (
-    <div className="max-w-7xl mx-auto p-4 md:p-8">
+    <div className="w-full px-4 md:px-8 py-4 md:py-8">
       <Header />
       <div className="flex flex-col gap-4 mb-8">
         <div className="flex justify-between items-center">
-          <Link href="/dashboard" className="neo-btn text-sm">← Dashboard</Link>
-          <button onClick={handleDownload} className="neo-btn neo-btn-primary">Download CSV</button>
+          <Link href="/dashboard" className="neo-btn text-sm">&larr; Dashboard</Link>
+          <button onClick={handleDownload} className="neo-btn neo-btn-primary" disabled={!data}>Download CSV</button>
         </div>
         <h1 className="text-3xl font-extrabold uppercase text-black">PI: {piUsername}</h1>
       </div>
 
-      {submittedMonths.length > 0 && (
-        <div className="neo-card p-4 mb-8 bg-white">
-          <span className="text-xs font-bold uppercase block mb-2">Select Period:</span>
-          <div className="flex flex-wrap gap-2">
-            {submittedMonths.map((sm) => (
-              <button
-                key={`${sm.year}-${sm.month}`}
-                onClick={() => fetchDataForMonth(sm.month, sm.year)}
-                className={`neo-btn text-xs ${data?.month === sm.month && data?.year === sm.year
-                  ? "bg-black text-white"
-                  : "bg-white"
-                  }`}
-              >
-                {new Date(sm.year, sm.month - 1).toLocaleString("en-US", { month: "short", year: "numeric" })}
-              </button>
-            ))}
+      {/* Month/Year Selector */}
+      <div className="neo-card p-4 mb-8 bg-white">
+        <span className="text-xs font-bold uppercase block mb-2">Select Period:</span>
+        <div className="flex gap-4 items-end">
+          <div>
+            <label className="block text-xs font-bold uppercase mb-1">Month</label>
+            <select
+              value={selectedMonth}
+              onChange={(e) => {
+                setSelectedMonth(+e.target.value);
+                setSelectedUser(null);
+              }}
+              className="neo-input"
+            >
+              {Array.from({ length: 12 }, (_, i) => (
+                <option key={i + 1} value={i + 1}>
+                  {new Date(0, i).toLocaleString("en-US", { month: "long" })}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-bold uppercase mb-1">Year</label>
+            <select
+              value={selectedYear}
+              onChange={(e) => {
+                setSelectedYear(+e.target.value);
+                setSelectedUser(null);
+              }}
+              className="neo-input"
+            >
+              <option value="2026">2026</option>
+              <option value="2025">2025</option>
+              <option value="2024">2024</option>
+            </select>
           </div>
         </div>
-      )}
+      </div>
 
       {loading && <div className="text-center p-8 font-bold">Loading data...</div>}
       {error && <div className="neo-card bg-red-100 border-red-500 p-4 mb-4 text-red-700 font-bold">{error}</div>}
@@ -330,12 +404,17 @@ export default function PIDetailPage() {
         <div className="space-y-8">
           {/* Summary Card */}
           <div className="neo-card p-6 bg-blue-50">
-            <div className="flex flex-col md:flex-row justify-between items-center">
+            <div className="flex flex-col md:flex-row justify-between items-center gap-2">
               <h2 className="text-xl font-bold uppercase">
                 {new Date(0, data.month - 1).toLocaleString("en-US", { month: "long" })} {data.year}
               </h2>
-              <div className="badge bg-white border-2 border-black text-lg p-2 mt-2 md:mt-0">
-                Total Working Days: {data.totalWorkingDays}
+              <div className="flex gap-3 flex-wrap">
+                <div className="badge bg-white border-2 border-black text-lg p-2">
+                  Working Days: {data.totalWorkingDays}
+                </div>
+                <div className="badge bg-gray-100 border-2 border-black text-lg p-2">
+                  Holidays: {data.holidays ?? 0}
+                </div>
               </div>
             </div>
           </div>
@@ -344,64 +423,145 @@ export default function PIDetailPage() {
           <div className="neo-card">
             <div className="p-4 border-b-2 border-black bg-white flex flex-col md:flex-row justify-between gap-4 items-center">
               <h2 className="text-xl font-bold uppercase">Staff Attendance</h2>
-              <input
-                type="text"
-                placeholder="Search Staff..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="neo-input md:w-64"
-              />
+              <div className="flex items-center gap-4 flex-wrap">
+                <select
+                  value={selectedProject}
+                  onChange={(e) => setSelectedProject(e.target.value)}
+                  className="neo-input md:w-48"
+                >
+                  <option value="all">All Projects</option>
+                  {projectCodes.map((code) => (
+                    <option key={code} value={code}>
+                      {code}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="text"
+                  placeholder="Search Staff..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="neo-input md:w-64"
+                />
+              </div>
             </div>
 
-            <div className="neo-table-container border-0 rounded-none">
-              <table className="neo-table">
+            <div className="neo-table-container border-0 rounded-none overflow-x-auto">
+              <table className="neo-table text-sm">
                 <thead>
                   <tr>
-                    <th>Username</th>
+                    <th>Name</th>
                     <th>ID</th>
+                    <th>Project</th>
+                    <th className="text-center">WorkingDay</th>
+                    <th className="text-center">Holidays</th>
                     <th className="text-center">Present</th>
-                    <th className="text-center">Adjustment</th>
                     <th className="text-center">Absent</th>
+                    <th className="text-center whitespace-nowrap">CL Full Day</th>
+                    <th className="text-center whitespace-nowrap">CL Half Day</th>
+                    <th className="text-center whitespace-nowrap">EL</th>
+                    <th className="text-center whitespace-nowrap">OD</th>
+                    <th className="text-center whitespace-nowrap">PI Adj. Added</th>
+                    <th className="text-center whitespace-nowrap">PI Adj. Sub</th>
+                    <th className="text-center whitespace-nowrap">Total Salary Days</th>
                     <th className="text-center">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredUsers.length > 0 ? (
                     filteredUsers.map((user) => {
-                      const absentDays = Math.max(0, user.workingDays - user.presentDays);
+                      const userHolidays = user.holidays ?? data.holidays ?? 0;
+                      const addedDays = user.addedDays ?? 0;
+                      const removedDays = user.removedDays ?? 0;
+                      const leaveDays = user.leaveDays ?? filterPastLeaves(teamLeaves[user.employeeId] ?? []).length;
+                      const fullDayLeaves = user.fullDayLeaves ?? leaveDays;
+                      const halfDayLeaves = user.halfDayLeaves ?? 0;
+                      const actualAbsent = user.absentDays;
+                      const total = user.total ?? (user.presentDays + userHolidays + leaveDays + addedDays - removedDays);
                       return (
-                        <tr key={user.username}>
+                        <tr key={user.employeeId}>
                           <td className="font-bold">{user.username}</td>
                           <td>{user.employeeId}</td>
+                          <td>
+                            <div className="flex flex-wrap gap-1">
+                              {(user.projects || []).map((p, pIndex) => (
+                                <span
+                                  key={`${p.projectCode}-${pIndex}`}
+                                  className="text-xs border border-black px-1 bg-gray-50"
+                                >
+                                  {p.projectCode}
+                                </span>
+                              ))}
+                            </div>
+                          </td>
+                          <td className="text-center">
+                            <span className="badge bg-white border border-black">{user.workingDays}</span>
+                          </td>
+                          <td className="text-center">
+                            <span className="badge bg-gray-100 border border-black">{userHolidays}</span>
+                          </td>
                           <td className="text-center">
                             <span className="badge badge-green">{user.presentDays}</span>
                           </td>
                           <td className="text-center">
-                            <span className="badge badge-blue">
-                              {typeof user.adjustmentDelta === 'number' ? (user.adjustmentDelta > 0 ? `+${user.adjustmentDelta}` : user.adjustmentDelta) : '-'}
-                            </span>
-                            {user.adjustmentComment && (
-                              <div className="text-[10px] mt-1 italic max-w-[150px] mx-auto truncate" title={user.adjustmentComment}>
-                                "{user.adjustmentComment}"
-                              </div>
+                            <span className="badge badge-red">{actualAbsent}</span>
+                          </td>
+                          <td className="text-center">
+                            <span className="badge bg-cyan-200 text-cyan-900 border border-cyan-900">{user.clFullDay ?? fullDayLeaves}</span>
+                          </td>
+                          <td className="text-center">
+                            <span className="badge bg-cyan-200 text-cyan-900 border border-cyan-900">{user.clHalfDay ?? halfDayLeaves}</span>
+                          </td>
+                          <td className="text-center">
+                            <span className="badge bg-cyan-200 text-cyan-900 border border-cyan-900">{user.elDays ?? 0}</span>
+                          </td>
+                          <td className="text-center">
+                            <span className="badge bg-cyan-200 text-cyan-900 border border-cyan-900">{user.odDays ?? 0}</span>
+                          </td>
+                          <td className="text-center">
+                            <span className="badge badge-blue">{addedDays}</span>
+                            {addedDays > 0 && (
+                              <button
+                                onClick={() => setReasonModal({ user, type: "ADDED" })}
+                                className="ml-1 text-xs text-blue-600 underline hover:text-blue-800"
+                              >
+                                View Reason
+                              </button>
                             )}
                           </td>
                           <td className="text-center">
-                            <span className="badge badge-red">{absentDays}</span>
+                            <span className="badge badge-yellow">{removedDays}</span>
+                            {removedDays > 0 && (
+                              <button
+                                onClick={() => setReasonModal({ user, type: "REMOVED" })}
+                                className="ml-1 text-xs text-blue-600 underline hover:text-blue-800"
+                              >
+                                View Reason
+                              </button>
+                            )}
+                          </td>
+                          <td className="text-center">
+                            <span className="badge bg-white border-2 border-black font-bold">{total}</span>
                           </td>
                           <td className="text-center">
                             <button
-                              onClick={() => setSelectedUser(selectedUser?.username === user.username ? null : user)}
+                              onClick={() => {
+                                const isClosing = selectedUser?.employeeId === user.employeeId;
+                                setSelectedUser(isClosing ? null : user);
+                                if (!isClosing) {
+                                  setTimeout(() => detailRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
+                                }
+                              }}
                               className="neo-btn text-xs py-1 px-2"
                             >
-                              {selectedUser?.username === user.username ? "Close" : "Details"}
+                              {selectedUser?.employeeId === user.employeeId ? "Close" : "Details"}
                             </button>
                           </td>
                         </tr>
                       );
                     })
                   ) : (
-                    <tr><td colSpan={6} className="text-center p-8">No users found</td></tr>
+                    <tr><td colSpan={13} className="text-center p-8">No users found</td></tr>
                   )}
                 </tbody>
               </table>
@@ -410,7 +570,7 @@ export default function PIDetailPage() {
 
           {/* Detailed View (Calendar + Records) */}
           {selectedUser && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-in fade-in slide-in-from-bottom-4 duration-300">
+            <div ref={detailRef} className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-in fade-in slide-in-from-bottom-4 duration-300">
 
               {/* Calendar */}
               <div className="neo-card overflow-hidden flex flex-col">
@@ -433,17 +593,44 @@ export default function PIDetailPage() {
                         ))}
                         {calendarData.map(day => (
                           <div key={day.date} className={getDayClass(day)}>
-                            <span className="font-bold text-sm">{new Date(day.date).getDate()}</span>
+                            <div className="flex justify-between items-start">
+                              <span className="font-bold text-sm">{new Date(day.date).getDate()}</span>
+                              {day.isJoiningDate && <span className="text-[9px] text-blue-700 font-extrabold uppercase leading-tight" title="Joining Date">JOIN</span>}
+                              {day.isTermCompletionDate && <span className="text-[9px] text-purple-700 font-extrabold uppercase leading-tight" title="Term Completion Date">TERM</span>}
+                            </div>
                             {day.description && <span className="text-[10px] text-red-600 font-extrabold uppercase text-right leading-tight">{day.description}</span>}
                             <div className="text-xs font-bold uppercase text-center mt-1">
-                              {day.status === "present" && <span className="text-green-900">✔</span>}
-                              {day.status === "absent" && <span className="text-red-900">✘</span>}
+                              {day.isAdded && (
+                                <span className="text-emerald-900" title={day.addedReason || "Added by PI"}>+ ADD</span>
+                              )}
+                              {day.isRemoved && (
+                                <span className="text-orange-900" title={day.removedReason || "Removed by PI"}>&minus; REM</span>
+                              )}
+                              {!day.isAdded && !day.isRemoved && day.status === "leave" && (
+                                <span className="text-cyan-900" title={day.leaveReason || "Leave"}>
+                                  {day.leaveType === "10" ? "EL" : (day.leaveType === "00" || day.leaveType === "11") ? "OD" : day.dayType === "10" ? "CL-FN" : day.dayType === "01" ? "CL-AN" : "CL"}
+                                </span>
+                              )}
+                              {!day.isAdded && !day.isRemoved && day.status === "present" && <span className="text-green-900">&#10004;</span>}
+                              {!day.isAdded && !day.isRemoved && day.status === "absent" && <span className="text-red-900">&#10008;</span>}
                             </div>
                           </div>
                         ))}
                       </div>
                     </div>
                   )}
+                  {/* Legend */}
+                  <div className="flex gap-3 mt-3 text-xs font-bold uppercase justify-center flex-wrap">
+                    <div className="flex items-center gap-1"><div className="w-3 h-3 bg-green-200 border border-black"></div> Present</div>
+                    <div className="flex items-center gap-1"><div className="w-3 h-3 bg-red-200 border border-black"></div> Absent</div>
+                    <div className="flex items-center gap-1"><div className="w-3 h-3 bg-cyan-200 border border-black"></div> Leave</div>
+                    <div className="flex items-center gap-1"><div className="w-3 h-3 bg-red-50 border border-black"></div> Holiday</div>
+                    <div className="flex items-center gap-1"><div className="w-3 h-3 bg-gray-100 border border-black"></div> Weekend</div>
+                    <div className="flex items-center gap-1"><div className="w-3 h-3 bg-emerald-300 border border-black"></div> PI Added</div>
+                    <div className="flex items-center gap-1"><div className="w-3 h-3 bg-orange-200 border border-black"></div> PI Removed</div>
+                    <div className="flex items-center gap-1"><div className="w-3 h-3 bg-white border-2 border-blue-600"></div> Joining</div>
+                    <div className="flex items-center gap-1"><div className="w-3 h-3 bg-white border-2 border-purple-600"></div> Term End</div>
+                  </div>
                 </div>
               </div>
 
@@ -459,7 +646,6 @@ export default function PIDetailPage() {
                         <th>Date</th>
                         <th>In</th>
                         <th>Out</th>
-                        <th>Type</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -469,11 +655,10 @@ export default function PIDetailPage() {
                             <td>{formatDate(att.date)}</td>
                             <td className="font-mono text-xs text-green-700">{formatTime(att.checkinTime)}</td>
                             <td className="font-mono text-xs text-red-700">{formatTime(att.checkoutTime)}</td>
-                            <td><span className="badge badge-gray text-[10px]">{att.attendanceType}</span></td>
                           </tr>
                         ))
                       ) : (
-                        <tr><td colSpan={4} className="text-center p-8">No records</td></tr>
+                        <tr><td colSpan={3} className="text-center p-8">No records</td></tr>
                       )}
                     </tbody>
                   </table>
@@ -482,6 +667,46 @@ export default function PIDetailPage() {
 
             </div>
           )}
+        </div>
+      )}
+
+      {/* View Reason Modal */}
+      {reasonModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setReasonModal(null)}>
+          <div className="neo-card bg-white max-w-lg w-full max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="p-4 border-b-2 border-black bg-gray-100 flex justify-between items-center">
+              <h3 className="font-bold uppercase text-sm">
+                {reasonModal.type === "ADDED" ? "PI Adjustment Added" : "PI Adjustment Subtracted"} - {reasonModal.user.username}
+              </h3>
+              <button onClick={() => setReasonModal(null)} className="neo-btn text-xs py-1 px-2">Close</button>
+            </div>
+            <div className="p-4">
+              {(reasonModal.user.modifiedAttendances || [])
+                .filter((m) => m.status === reasonModal.type)
+                .length === 0 ? (
+                <p className="text-center text-gray-500 py-4">No records found</p>
+              ) : (
+                <div className="space-y-3">
+                  {(reasonModal.user.modifiedAttendances || [])
+                    .filter((m) => m.status === reasonModal.type)
+                    .map((m) => (
+                      <div key={m.id} className="border-2 border-black p-3 bg-gray-50">
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="font-bold text-sm">{formatDate(m.date)}</span>
+                          <span className={`badge text-xs ${m.status === "ADDED" ? "badge-green" : "badge-red"}`}>
+                            {m.status}
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-700">{m.comment || "No reason provided"}</p>
+                        <p className="text-xs text-gray-400 mt-1">
+                          {new Date(m.createdAt).toLocaleString()}
+                        </p>
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>

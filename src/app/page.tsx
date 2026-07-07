@@ -4,8 +4,9 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "../hooks/useAuth";
 
 export default function LoginPage() {
-  const [username, setUsername] = useState("HRUser");
-  const [password, setPassword] = useState("123456");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const { login } = useAuth();
   const router = useRouter();
@@ -51,14 +52,24 @@ export default function LoginPage() {
             >
               Password
             </label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="neo-input"
-              required
-            />
+            <div className="relative">
+              <input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="neo-input pr-12"
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-black font-bold text-sm uppercase select-none"
+                tabIndex={-1}
+              >
+                {showPassword ? "🙈" : "👁️"}
+              </button>
+            </div>
           </div>
           <button
             type="submit"
