@@ -57,6 +57,7 @@ interface UserAttendance {
   projects?: { projectCode: string; department: string }[];
   joiningDate?: string | null;
   termCompletionDate?: string | null;
+  isActive?: boolean;
   attendances: AttendanceRecord[];
   modifiedAttendances?: ModifiedAttendanceRecord[];
 }
@@ -117,6 +118,8 @@ export default function PIDetailPage() {
     queryYear ? parseInt(queryYear) : new Date().getFullYear()
   );
   const [selectedProject, setSelectedProject] = useState<string>("all");
+  const [showActiveOnly, setShowActiveOnly] = useState<boolean>(false);
+  const [downloadingProject, setDownloadingProject] = useState(false);
   const [reasonModal, setReasonModal] = useState<{ user: UserAttendance; type: "ADDED" | "REMOVED" } | null>(null);
   const [teamLeaves, setTeamLeaves] = useState<TeamLeavesMap>({});
   const detailRef = useRef<HTMLDivElement>(null);
@@ -267,10 +270,16 @@ export default function PIDetailPage() {
     }
   }, [selectedUser, loadCalendarForUser]);
 
-  const handleDownload = async () => {
+  const handleDownload = async (projectCode?: string) => {
     if (!data) return;
+    if (projectCode) setDownloadingProject(true);
     try {
-      const url = `${process.env.NEXT_PUBLIC_API_BASE}/hr/pi/${piUsername}/download?month=${data.month}&year=${data.year}`;
+      const params = new URLSearchParams({
+        month: String(data.month),
+        year: String(data.year),
+      });
+      if (projectCode) params.set("project", projectCode);
+      const url = `${process.env.NEXT_PUBLIC_API_BASE}/hr/pi/${piUsername}/download?${params.toString()}`;
       const response = await fetch(url, {
         headers: { Authorization: `Bearer ${localStorage.getItem("hr_token")}` },
       });
@@ -279,7 +288,9 @@ export default function PIDetailPage() {
       const downloadUrl = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = downloadUrl;
-      a.download = `PI_${piUsername}_Report_${data.month}_${data.year}.csv`;
+      a.download = projectCode
+        ? `PI_${piUsername}_${projectCode}_Report_${data.month}_${data.year}.csv`
+        : `PI_${piUsername}_Report_${data.month}_${data.year}.csv`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -287,6 +298,8 @@ export default function PIDetailPage() {
     } catch (error) {
       console.error("Download error:", error);
       alert("Failed to download report");
+    } finally {
+      if (projectCode) setDownloadingProject(false);
     }
   };
 
@@ -334,7 +347,8 @@ export default function PIDetailPage() {
       const matchesProject =
         selectedProject === "all" ||
         (user.projects || []).some((p) => p.projectCode === selectedProject);
-      return matchesSearch && matchesProject;
+      const matchesActive = !showActiveOnly || user.isActive === true;
+      return matchesSearch && matchesProject && matchesActive;
     }) || [];
 
   if (!isMounted || authLoading || !user) {
@@ -353,7 +367,7 @@ export default function PIDetailPage() {
       <div className="flex flex-col gap-4 mb-8">
         <div className="flex justify-between items-center">
           <Link href="/dashboard" className="neo-btn text-sm">&larr; Dashboard</Link>
-          <button onClick={handleDownload} className="neo-btn neo-btn-primary" disabled={!data}>Download CSV</button>
+          <button onClick={() => handleDownload()} className="neo-btn neo-btn-primary" disabled={!data}>Download CSV (All Projects)</button>
         </div>
         <h1 className="text-3xl font-extrabold uppercase text-black">PI: {piUsername}</h1>
       </div>
@@ -436,6 +450,41 @@ export default function PIDetailPage() {
                     </option>
                   ))}
                 </select>
+                {selectedProject !== "all" && (
+                  <button
+                    type="button"
+                    onClick={() => handleDownload(selectedProject)}
+                    disabled={downloadingProject}
+                    className="neo-btn text-sm py-2 whitespace-nowrap disabled:opacity-50"
+                    title={`Download CSV for project ${selectedProject} only`}
+                  >
+                    {downloadingProject ? "Downloading..." : `Download CSV (${selectedProject})`}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setShowActiveOnly((prev) => !prev)}
+                  aria-pressed={showActiveOnly}
+                  title={
+                    showActiveOnly
+                      ? "Showing active (still employed) staff only. Click to show all."
+                      : "Showing all staff. Click to show active (still employed) only."
+                  }
+                  className="neo-input flex items-center gap-2 cursor-pointer whitespace-nowrap font-bold border-2 border-black select-none"
+                >
+                  <span
+                    className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border-2 border-black transition-colors ${
+                      showActiveOnly ? "bg-green-400" : "bg-gray-300"
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white border-2 border-black transition-transform ${
+                        showActiveOnly ? "translate-x-5" : "translate-x-0.5"
+                      }`}
+                    />
+                  </span>
+                  {showActiveOnly ? "Active only" : "All staff"}
+                </button>
                 <input
                   type="text"
                   placeholder="Search Staff..."
